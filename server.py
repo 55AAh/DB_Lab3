@@ -5,6 +5,8 @@ from db import *
 class Server:
     def __init__(self):
         self.db = Db()
+        if self.db.is_empty():
+            self.reset_database()
 
     def auth_user(self, username, password):
         user = User.find(self.db.session(), username)

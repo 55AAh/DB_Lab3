@@ -1,5 +1,6 @@
 from urllib import parse
 from flask import Flask, render_template, redirect, make_response, request, abort
+import os
 from server import Server
 
 app = Flask("Lab3Forum")
@@ -218,7 +219,10 @@ def index():
 
 
 if __name__ == "__main__":
-    app.jinja_env.auto_reload = True
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.debug = True
-    app.run()
+    if os.environ.get("DEBUG"):
+        app.jinja_env.auto_reload = True
+        app.config['TEMPLATES_AUTO_RELOAD'] = True
+        app.debug = True
+    host = os.environ.get("HOST", '127.0.0.1')
+    port = int(os.environ.get("PORT", 80))
+    app.run(host=host, port=port)

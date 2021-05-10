@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, Sequence, String, DateTime, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy.engine.reflection import Inspector
+import os
 from datetime import datetime
 
 Base = declarative_base()
@@ -103,22 +105,34 @@ class DbSession:
 
 
 class Db:
+    def is_empty(self):
+        return "users" not in self.inspector.get_table_names()
+
     @staticmethod
-    def read_flyway_config():
+    def get_url_from_environment():
+        url = os.environ.get("DATABASE_URL")
+        if url is not None:
+            url = url.replace("postgres", "postgresql")
+        return url
+
+    @staticmethod
+    def get_url_from_flyway():
         config = dict()
         with open("flyway.conf") as f:
             for line in f.readlines():
                 if "=" in line:
                     key, value = line.split("=")
                     config[key] = value.strip()
-        return config
+        driver_dialect, address = config["flyway.url"].split("//")
+        driver = driver_dialect.split(":")[1]
+        user = config["flyway.user"]
+        password = config["flyway.password"]
+        return f'{driver}://{user}:{password}@{address}'
 
     def __init__(self):
-        flyway_config = Db.read_flyway_config()
-        driver_dialect, address = flyway_config["flyway.url"].split("//")
-        driver = driver_dialect.split(":")[1]
-        user = flyway_config["flyway.user"]
-        password = flyway_config["flyway.password"]
-        url = f'{driver}://{user}:{password}@{address}'
-        self.engine = create_engine(url, echo=True)
+        database_url = Db.get_url_from_environment()
+        if database_url is None:
+            database_url = Db.get_url_from_flyway()
+        self.engine = create_engine(database_url, echo=os.environ.get("DEBUG") is not None)
+        self.inspector = Inspector.from_engine(self.engine)
         self.session = DbSession(sessionmaker(bind=self.engine, expire_on_commit=False)())
